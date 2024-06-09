@@ -2,75 +2,104 @@ import flask
 import flask_login
 import sqlalchemy as db
 
-from main import session, app
+from main import dbs, app
 from ormmodels import User, Session, Note, NoteItem
 
 
-def validate_username(name: str) -> True:
-    existing_user = session.execute(db.select(User).where(User.username == name)).one_or_none()
-    if not existing_user: return True
+def getUser_bySessionkey(sessionkey: str) -> User:
+    usersession = dbs.execute(
+        db.select(Session)
+        .where(Session.key == sessionkey)
+    ).one_or_none()
+
+    user = dbs.execute(
+        db.select(User)
+        .where(User.ID == int(usersession.userID))
+    ).one_or_none()
+    return user
+
+
+def isUsernameTaken(name: str) -> bool:
+    existing_user = dbs.execute(
+        db.select(User)
+        .where(User.username == name)
+    ).one_or_none()
+    if existing_user: return True
     else: return False
 
 
+def register_admin() -> str:
+    username, password = "ADMIN", "ADMIN"
+
+    dbs.add(User(username=username, password=password))
+    dbs.commit()
+
+    flask.redirect("login")
+
+    return f"ADMIN account was created."
+
+
 def register() -> str:
-    username = flask.request.form["username"]
-    password = flask.request.form["password"]
+    username, password = flask.request.form["username"], flask.request.form["password"]
 
-    msg: str
+    if username == "ADMIN":
+        return "Cannot register own ADMIN account."
 
-    if validate_username(username):
-        msg = "Such user already exists. Please choose another username or login instead."
+    if isUsernameTaken(username):
+        return "Such user already exists. Please choose another username or login instead."
+
     if len(password) < 5:
-        msg = "The password is too short: Password needs to be longer than 4 characters (like I really care lol bro)"
-    else:
-        session.add(User(username=username, password=password))
-        session.commit()
-        msg = (f"User \"{username}\" registered successfully! "
-               f"(bro what a dumb nickname u couldn't come up with anything better like seriously? "
-               f"You should be ashamed.)")
-        flask.redirect("login")
+        return "The password is too short: Password needs to be longer than 4 characters (like I really care lol bro)"
 
-    flask.flash(msg)
-    return msg
+    dbs.add(User(username=username, password=password))
+    dbs.commit()
+
+    flask.redirect("login")
+
+    return (f"User \"{username}\" registered successfully! "
+            f"(bro what a dumb nickname u couldn't come up with anything better like seriously? "
+            f"You should be ashamed.)")
 
 
-def login() -> str:
-    # form = LoginForm()
+def login() -> (str, None|str):
+    username =  str(flask.request.form["username"])
+    password =  str(flask.request.form["password"])
+    remember = bool(flask.request.form["remember"])
 
-    # username: str =  form.username.data
-    # password: str =  form.password.data
-    # remember: bool = form.remember.data
-
-    # if form.validate_on_submit():
-
-    username: str = flask.request.form["username"]
-    password: str = flask.request.form["password"]
-    remember: bool = bool(flask.request.form["remember"])
-
-    user = session.execute(db.select(User).where(User.username == str(username))).one_or_none()
+    user = dbs.execute(
+        db.select(User)
+        .where(User.username == str(username))
+    ).one_or_none()
 
     if not (user and user.check_password(password)):
-        return flask.flash("Invalid username or password.")
-    else:
-        flask.session["username"] = user.username
-        flask.session["password"] = user.password
-        flask.session["remember"] = user.remember
+        return "Invalid username or password.", None
 
-        usersession = Session(user.ID)
-        session.add(usersession)
-        session.commit()
-        flask_login.login_user(user, remember=remember)
-        flask.redirect(flask.url_for('admin'))
-        return usersession.key
+    flask.session["username"] = user.username
+    flask.session["password"] = user.password
+    flask.session["remember"] = user.remember
+
+    usersession = Session(user.ID)
+    dbs.add(usersession)
+    dbs.commit()
+
+    flask_login.login_user(user, remember=remember)
+    # flask.redirect(flask.url_for('admin'))
+    return f"Login for user {user.username} successful! Sessionkey generated.", usersession.key
 
 
-def logout() -> str:
-    flask.session.pop("name", None)
+def logout(sessionkey: str) -> bool:
+    # Flask logout
     flask.logout_user()
-    msg = "You have been logged out."
-    flask.flash(msg)
     flask.redirect(flask.url_for('login'))
-    return msg
+
+    # DB logout
+    dbs.execute(
+        db.delete(Session)
+        .where(Session.key == sessionkey)
+    )
+    dbs.commit()
+
+    return True
 
 
 """
@@ -79,7 +108,7 @@ def logout() -> str:
 
 
 def get_users() -> str:
-    users = session.execute(db.select(User)).all()
+    users = dbs.execute(db.select(User)).all()
     res = ""
     if users:
         for n, i in users, enumerate(users):
@@ -89,24 +118,26 @@ def get_users() -> str:
 
 
 def get_user(user_id: int) -> str:
-    # Find note by id and update its value
-    user = session.execute(db.select(User).where(User.ID == user_id)).one_or_none()
+    user = dbs.execute(
+        db.select(User)
+        .where(User.ID == user_id)
+    ).one_or_none()
 
     if not user:
         return f"ERROR: Could not find user by id #{user_id}."
 
-    return f"User #{user_id} notes: {user[0].notes}"
+    return f"User #{user_id} notes: {user.notes}"
 
 
 def delete_user(user_id: int) -> str:
-    user = session.execute(db.select(User).where(User.ID == user_id)).one_or_none()
+    user = dbs.execute(db.select(User).where(User.ID == user_id)).one_or_none()
     if not user:
         return f"ERROR: Could not find user by id #{user_id}."
 
-    session.delete(user[0])
+    dbs.delete(user[0])
     # for i in item[0].getItems():
     #     session.delete(i[0])
-    session.commit()
+    dbs.commit()
     return f"User #{user_id} was successfully deleted!"
 
 
@@ -117,8 +148,8 @@ def post_user() -> str:
         return "Error: No parameters (name and/or password) given."
 
     user = User(name, password)
-    session.add(user)
-    session.commit()
+    dbs.add(user)
+    dbs.commit()
 
     return f"User posted under the ID #{user.ID}."
 
@@ -129,18 +160,22 @@ def post_user() -> str:
 
 
 def get_notes() -> str:
-    notes = session.execute(db.select(Note)).all()
+    notes = dbs.execute(
+        db.select(Note)
+    ).all()
+
+    if not notes:  return "No notes."
+
     res = ""
-    if notes:
-        for n, i in notes, enumerate(notes):
-            res += f"\nNote #{i}: {n}\n"
-    else: res = "No notes."
+    for n, i in notes, enumerate(notes):
+        res += f"\nNote #{i}: {n}\n"
+
     return res
 
 
 def get_note(note_id: int) -> str:
     # Find note by id and update its value
-    item = session.execute(
+    item = dbs.execute(
         db.select(NoteItem).where(NoteItem.parentnote == note_id)
     ).one_or_none()
 
@@ -151,16 +186,15 @@ def get_note(note_id: int) -> str:
 
 
 def delete_note(note_id: int) -> str:
-    item = session.execute(
+    item = dbs.execute(
         db.select(Note).where(Note.ID == note_id)
     ).one_or_none()
     if not item:
         return f"ERROR: Could not find note by id #{note_id}."
 
-    session.delete(item[0])
-    # for i in item[0].getItems():
-    #     session.delete(i[0])
-    session.commit()
+    dbs.delete(item[0])
+    dbs.commit()
+
     return f"Note #{note_id} was successfully deleted!"
 
 
@@ -170,11 +204,14 @@ def post_note() -> str:
     if not content: content = ""
     if not name: name = ""
 
+    # Creating note
     note = Note(name)
-    session.add(note)
-    session.commit()
+    dbs.add(note)
+    dbs.commit()
+
+    # First nitem
     note.create_item(content)
-    session.commit()
+    dbs.commit()
 
     return f"Note posted under the ID #{note.ID}."
 
@@ -184,41 +221,41 @@ def post_note() -> str:
 """
 
 
-def get_item(item_id: int) -> str:
-    if not session.execute(db.db.select(Note).where(Note.ID == item_id)).one_or_none():
+def get_noteitem(item_id: int) -> str:
+    if not dbs.execute(db.db.select(Note).where(Note.ID == item_id)).one_or_none():
         return f"ERROR: Could not find note by id #{item_id}."
 
-    items = session.execute(db.select(NoteItem).where(NoteItem.parentnote == item_id)).all()
-    content = [i for i in items]
+    nitems = dbs.execute(db.select(NoteItem).where(NoteItem.parentnote == item_id)).all()
+    content = [nitem for nitem in nitems]
 
-    content.sort(key=lambda i: i.index)
+    content.sort(key=lambda nitem: nitem.index)
 
     return f"Note #{item_id} contents: {flask.jsonify(content)}"
 
 
-def post_item(note_id: int) -> str:
+def post_noteitem(note_id: int) -> str:
     content = flask.request.args.get("content")
 
-    noteitem = session.execute(db.select(Note).where(Note.ID == note_id)).one_or_none()
-    if not noteitem:
+    nitem = dbs.execute(db.select(Note).where(Note.ID == note_id)).one_or_none()
+    if not nitem:
         return f"ERROR: Could not find noteitem by id #{note_id}."
-    else: noteitem = noteitem[0]
-    session.add(NoteItem(content))
-    session.commit()
+    else: nitem = nitem[0]
+    dbs.add(NoteItem(content))
+    dbs.commit()
 
-    return f"Item posted under the ID #{noteitem.ID}"
+    return f"Item posted under the ID #{nitem.ID}"
 
 
-def delete_item(item_id: int) -> str:
-    item = session.execute(db.select(NoteItem).where(NoteItem.ID == item_id)).one_or_none()
-    if not item:
+def delete_noteitem(item_id: int) -> str:
+    nitem = dbs.execute(db.select(NoteItem).where(NoteItem.ID == item_id)).one_or_none()
+    if not nitem:
         return f"ERROR: Could not find item by id #{item_id}."
-    session.delete(item[0])
+    dbs.delete(nitem[0])
     return f"Item #{item_id} was successfully deleted!"
 
 
-def put_item(item_id: int, content: str) -> str:
-    nitem: NoteItem = session.execute(db.select(NoteItem).where(NoteItem.ID == item_id)).one_or_none()
+def put_noteitem(item_id: int, content: str) -> str:
+    nitem: NoteItem = dbs.execute(db.select(NoteItem).where(NoteItem.ID == item_id)).one_or_none()
 
     if not nitem:
         return f"ERROR: Could not find item by id #{item_id}."

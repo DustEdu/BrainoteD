@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash as hashed_password, check_p
 from flask_login import UserMixin
 
 from authorize import login_manager
-from main import session, DeclarativeBase
+from main import dbs, DeclarativeBase
 
 
 @login_manager.user_loader
@@ -89,18 +89,18 @@ class Note(DeclarativeBase):
         self.isLocked = False
 
     def getItems(self):
-        return session.execute(db.select(NoteItem).where(
+        return dbs.execute(db.select(NoteItem).where(
             NoteItem.noteID == self.ID)).all()
 
     def create_item(self, *args):
         print(f"\n\n\n\t\tID: {int(self.ID)}\n\n\n")
         noteitem = NoteItem(*args, noteID=int(self.ID))
         print(f"\n\n\n\t\tNoteItem: {noteitem}; noteID: {noteitem.noteID}\n\n\n")
-        session.add(noteitem)
+        dbs.add(noteitem)
 
     def create_subnote(self, *args):
         subnote = Note(*args, parent_id=int(self.ID))
-        session.add(subnote)
+        dbs.add(subnote)
 
         print(f"\n\n\n\t\t"
               f"self.ID: {int(self.ID)}"
@@ -110,9 +110,9 @@ class Note(DeclarativeBase):
               f"\n\n\n")
 
     def rearrange(self, i, j):
-        item1 = session.execute(db.select(NoteItem).where(
+        item1 = dbs.execute(db.select(NoteItem).where(
             NoteItem.noteID == self.ID, NoteItem.index == i)).one_or_none()
-        items = session.execute(db.select(NoteItem).where(
+        items = dbs.execute(db.select(NoteItem).where(
             NoteItem.noteID == self.ID, NoteItem.index > i)).all()
 
         for i in items:

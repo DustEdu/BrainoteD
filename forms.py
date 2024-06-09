@@ -3,7 +3,7 @@ from wtforms import StringField, SubmitField,  BooleanField, PasswordField
 from wtforms.validators import DataRequired, ValidationError
 
 import sqlalchemy as db
-from main import session
+from main import dbs
 from ormmodels import User
 
 
@@ -20,6 +20,6 @@ class RegisterForm(FlaskForm):
     submit = SubmitField("Register")
 
     def validate_username(self, name: str):
-        existing_user = session.execute(db.select(User).where(User.username == name)).one_or_none()
+        existing_user = dbs.execute(db.select(User).where(User.username == name)).one_or_none()
         if existing_user:
             raise ValidationError("Such user already exists. Please choose another username or login instead.")
