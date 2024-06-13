@@ -1,4 +1,3 @@
-# from sqlalchemy import Column, Integer, String, ForeignKey, select, Boolean
 import secrets
 
 import sqlalchemy as db
@@ -12,7 +11,10 @@ from main import dbs, DeclarativeBase
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.execute(db.select(User).where(User.ID == user_id)).one_or_none()
+    return dbs.execute(
+        db.select(User)
+        .where(User.ID == user_id)
+    ).one_or_none()
 
 
 class Session(DeclarativeBase):
@@ -34,7 +36,8 @@ class Session(DeclarativeBase):
         self.userID = userID
 
 
-class User(DeclarativeBase, UserMixin):
+# , UserMixin
+class User(DeclarativeBase):
     __tablename__ = "users"
 
     # Columns
@@ -42,8 +45,6 @@ class User(DeclarativeBase, UserMixin):
     username = db.Column("nickname", db.String(16), unique=True)
     password = db.Column("password", db.String(16))
     language = db.Column("language", db.String(8))
-    # notesID  = Column("notes_id",
-    #                   Integer, ForeignKey("notes.id"))
 
     # Relationships
     notes    = db.orm.Relationship("Note", back_populates="user",
@@ -55,10 +56,11 @@ class User(DeclarativeBase, UserMixin):
 
     def __init__(self, username: str | None, password: str | None):
         self.username = username
-        self.password = password
-
-    def set_password(self, password) -> None:
         self.password = hashed_password(password)
+        self.language = "EN"
+
+    def set_password(self, val):
+        self.password = hashed_password(val)
 
     def check_password(self, password) -> bool:
         return check_password_hash(self.password, password)
@@ -83,7 +85,8 @@ class Note(DeclarativeBase):
     user  = db.orm.Relationship("User", back_populates="notes")
     notes = db.orm.Relationship("Note", remote_side=ID, passive_deletes=True)
 
-    def __init__(self, name: None|str = None, parent_id: None|int = None):
+    def __init__(self, userID: int, name: None|str = None, parent_id: None|int = None):
+        self.userID = userID
         self.name = name
         self.parent_id = parent_id
         self.isLocked = False
@@ -92,11 +95,13 @@ class Note(DeclarativeBase):
         return dbs.execute(db.select(NoteItem).where(
             NoteItem.noteID == self.ID)).all()
 
-    def create_item(self, *args):
-        print(f"\n\n\n\t\tID: {int(self.ID)}\n\n\n")
-        noteitem = NoteItem(*args, noteID=int(self.ID))
-        print(f"\n\n\n\t\tNoteItem: {noteitem}; noteID: {noteitem.noteID}\n\n\n")
+    def create_item(self,
+                    content: str,
+                    itemtype: str = "Text",
+                    index: int | None = None):
+        noteitem = NoteItem(int(self.ID), content, itemtype, index)
         dbs.add(noteitem)
+        return noteitem.noteID
 
     def create_subnote(self, *args):
         subnote = Note(*args, parent_id=int(self.ID))
@@ -117,7 +122,7 @@ class Note(DeclarativeBase):
 
         for i in items:
             i.index += 1
-        item1.index = j
+        item1[0].index = j
 
         print(f"items of note #{self.ID} were rearranged.")
 
@@ -127,37 +132,39 @@ class NoteItem(DeclarativeBase):
 
     # Columns
     ID       = db.Column("id", db.Integer, primary_key=True)
+    noteID   = db.Column("note_id", db.Integer,
+                         db.ForeignKey("notes.id", ondelete="CASCADE"),
+                         nullable=False)
+    index    = db.Column("index", db.Integer,
+                         unique=True, autoincrement=True, nullable=False)
     content  = db.Column("content", db.String)
     itemtype = db.Column("itemtype", db.String(16))
-    noteID   = db.Column("note_id", db.Integer,
-                      db.ForeignKey("notes.id", ondelete="CASCADE"))
-    index    = db.Column("index", db.Integer, unique=True)
 
     # Relationships
-    note = db.orm.Relationship("Note", back_populates="items",
-                        # foreign_keys=noteID
-                        )
+    note = db.orm.Relationship("Note", back_populates="items")
 
     def __init__(self,
+                 noteID:    int,
                  content:   str,
                  itemtype:  str = "Text",
-                 noteID:    int | None = None,
                  index:     int | None = None):
+        self.noteID     = noteID
         self.content    = content
         self.itemtype   = itemtype
-        self.noteID     = noteID
         self.index      = index
 
-    def updateItems(self,
+    def update_item(self,
                     content:  str | None = None,
                     itemtype: str | None = None,
-                    noteID:   int | None = None,
-                    index:    int | None = None
                     ):
         self.content    = content   if content  is not None else self.content
         self.itemtype   = itemtype  if itemtype is not None else self.itemtype
-        self.noteID     = noteID    if noteID   is not None else self.noteID
-        self.index      = index     if index    is not None else self.index
+
+    def drag_item(self, index: int):
+        self.index = int(index)
+
+    def move_item(self, noteID: int):
+        self.noteID = int(noteID)
 
     def __repr__(self):
         return str(dict(
