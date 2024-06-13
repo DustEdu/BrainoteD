@@ -22,7 +22,7 @@ class Session(DeclarativeBase):
 
     # Columns
     ID      = db.Column("id", db.Integer, primary_key=True)
-    key     = db.Column("key", db.String, unique=True, nullable=False)
+    key     = db.Column("key", db.String, unique=True, nullable=True)
     userID  = db.Column("user_id", db.Integer,
                         db.ForeignKey("users.id", ondelete="CASCADE"),
                         nullable=False)
