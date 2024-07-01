@@ -1,6 +1,6 @@
 import sqlalchemy as db
 
-import flask_routes.flaskroutes
+import routes.routes
 from main import dbs
 from ormmodels import NoteItem
 

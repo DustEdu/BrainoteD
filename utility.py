@@ -1,7 +1,7 @@
 import flask
 import sqlalchemy as db
 
-import flask_routes.flaskroutes
+import routes.routes
 from main import dbs
 from ormmodels import User, Note, NoteItem, Session
 
@@ -13,17 +13,18 @@ def isAdmin(user: User) -> bool:
         return False
 
 
-def get_provided_user(user: User) -> User | str:
+def get_provided_user(user: User) -> (User, str):
     if user.username == "ADMIN":
-        user_id = flask.request.args.get("id")
+        user_id = flask.request.args.get("user_id")
 
         if not user_id:
-            return "No id was found. Probably, no id argument was provided."
+            return None, "No user_id was found. Probably, no user_id argument was provided."
 
         user = dbs.execute(
             db.select(User)
             .where(User.ID == user_id)
         ).one_or_none()
+        if user: user = user[0]
 
     return user
 
@@ -86,3 +87,10 @@ def isUsernameTaken(name: str) -> bool:
     ).one_or_none()
     if existing_user: return True
     else: return False
+
+
+def respond(status: str = "Success", response=None):
+    return flask.make_response(flask.jsonify(dict(
+        status=status,
+        response=response
+    )))

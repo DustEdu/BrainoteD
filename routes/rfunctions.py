@@ -1,78 +1,8 @@
 import flask
-import sqlalchemy as db
 
-import flask_routes.flaskroutes
-from main import dbs
-import user_functions, note_functions, noteitem_functions
+import routes.routes
+from objects_functions import note_functions
 from ormmodels import *
-from utility import isUsernameTaken
-
-
-def register_admin() -> str:
-    username, password = "ADMIN", "ADMIN"
-
-    dbs.add(User(username=username, password=password))
-    dbs.commit()
-
-    flask.redirect("login")
-
-    return "ADMIN account was created."
-
-
-def register(username: str, password: str) -> str:
-    if username == "ADMIN":
-        return "Cannot register own ADMIN account."
-
-    if isUsernameTaken(username):
-        return "Such user already exists. Please choose another username or login instead."
-
-    if len(password) < 5:
-        return "The password is too short: Password needs to be longer than 4 characters (like I really care lol bro)"
-
-    dbs.add(User(username=username, password=password))
-    dbs.commit()
-
-    flask.redirect("login")
-
-    return (f"User \"{username}\" registered successfully! "
-            f"(bro what a dumb nickname u couldn't come up with anything better like seriously? "
-            f"You should be ashamed.)")
-
-
-def login(username: str, password: str, remember: bool) -> (str, None|str):
-    user: User = dbs.execute(
-        db.select(User)
-        .where(User.username == str(username))
-    ).one_or_none()
-
-    if not user or not user[0].check_password(password):
-        return "Invalid username or password.", None
-
-    user = user[0]
-
-    flask.session["username"] = user.username
-    # flask_login.login_user(user, remember=remember)
-
-    usersession = Session(user.ID)
-    dbs.add(usersession)
-    dbs.commit()
-
-    return f"Login for user {user.username} successful! Sessionkey generated.", usersession.key
-
-
-def logout(sessionkey: str) -> bool:
-    # Flask logout
-    # flask.logout_user()
-    # flask.redirect(flask.url_for('login'))
-
-    # DB logout
-    dbs.execute(
-        db.delete(Session)
-        .where(Session.key == sessionkey)
-    )
-    dbs.commit()
-
-    return True
 
 
 """
@@ -115,17 +45,17 @@ def delete_user(user_id: int) -> str:
     return f"User #{user_id} was successfully deleted!"
 
 
-def post_user() -> str:
+def post_user() -> (str, str):
     name = flask.request.args.get("name")
     password = flask.request.args.get("password")
-    if not (name or password):
+    if not name or not password:
         return "Error: No parameters (name and/or password) given."
 
     user = User(name, password)
     dbs.add(user)
     dbs.commit()
 
-    return f"User posted under the ID #{user.ID}."
+    return f"User posted under the ID #{user.ID}.", str(user.ID)
 
 
 """
@@ -150,6 +80,7 @@ def get_note(note_id: int) -> dict | None:
 
 
 def delete_note(note_id: int) -> str:
+    from objects_functions import note_functions
     if note_functions.delete(note_id):
         return f"Note #{note_id} was successfully deleted!"
     else:
@@ -171,24 +102,24 @@ def get_noteitem(item_id: int) -> str:
     ).all()
     content = [nitem for nitem in nitems]
 
-    content.sort(key=lambda nitem: flask_routes.flaskroutes.index)
+    content.sort(key=lambda nitem: nitem.index)
 
     return f"Note #{item_id} contents: {flask.jsonify(content)}"
 
 
-def post_noteitem(note_id: int):
+def post_noteitem(note_id: int) -> (str, str):
     note = dbs.execute(
         db.select(Note)
         .where(Note.ID == note_id)
     ).one_or_none()
     if not note:
-        return f"ERROR: Could not find nitem by id #{note_id}."
+        return f"ERROR: Could not find note by id #{note_id}."
 
     new_item = note_functions.create_item(noteid=note_id,
                                           itemtype="Text",
                                           content=flask.request.args.get("content"))
 
-    if new_item:    return f"Nitem posted under the ID #{new_item["id"]}"
+    if new_item:    return f"Nitem posted under the ID #{new_item.ID}", new_item.ID
     else:           return "ERROR: Could not post nitem."
 
 

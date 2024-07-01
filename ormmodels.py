@@ -3,18 +3,10 @@ import secrets
 import sqlalchemy as db
 
 from werkzeug.security import generate_password_hash as hashed_password, check_password_hash
-from flask_login import UserMixin
 
-from authorize import login_manager
 from main import dbs, DeclarativeBase
 
-
-@login_manager.user_loader
-def load_user(user_id):
-    return dbs.execute(
-        db.select(User)
-        .where(User.ID == user_id)
-    ).one_or_none()
+default_cascade = "save-update, merge, delete, delete-orphan"
 
 
 class Session(DeclarativeBase):
@@ -49,10 +41,10 @@ class User(DeclarativeBase):
     # Relationships
     notes    = db.orm.Relationship("Note", back_populates="user",
                                    passive_deletes=True,
-                                   cascade="save-update, merge, delete, delete-orphan")
+                                   cascade=default_cascade)
     sessions = db.orm.Relationship("Session", back_populates="user",
                                    passive_deletes=True,
-                                   cascade="save-update, merge, delete, delete-orphan")
+                                   cascade=default_cascade)
 
     def __init__(self, username: str | None, password: str | None):
         self.username = username
@@ -74,14 +66,14 @@ class Note(DeclarativeBase):
     name     = db.Column("name", db.String(32))
     isLocked = db.Column("is_locked", db.Boolean)
     userID   = db.Column("user_id", db.Integer,
-                      db.ForeignKey("users.id", ondelete="CASCADE"))
+                         db.ForeignKey("users.id", ondelete="CASCADE"))
     parentID = db.Column("parent_id", db.Integer,
-                      db.ForeignKey("notes.id", ondelete="CASCADE"))
+                         db.ForeignKey("notes.id", ondelete="CASCADE"))
 
     # Relationships
     items = db.orm.Relationship("NoteItem", back_populates="note",
                                 passive_deletes=True,
-                                cascade="save-update, merge, delete, delete-orphan")
+                                cascade=default_cascade)
     user  = db.orm.Relationship("User", back_populates="notes")
     notes = db.orm.Relationship("Note", remote_side=ID, passive_deletes=True)
 
@@ -136,7 +128,7 @@ class NoteItem(DeclarativeBase):
                          db.ForeignKey("notes.id", ondelete="CASCADE"),
                          nullable=False)
     index    = db.Column("index", db.Integer,
-                         unique=True, autoincrement=True, nullable=False)
+                         unique=True, autoincrement=True, nullable=True)
     content  = db.Column("content", db.String)
     itemtype = db.Column("itemtype", db.String(16))
 
