@@ -1,6 +1,5 @@
 import flask
 
-import routes.routes
 from objects_functions import note_functions
 from ormmodels import *
 

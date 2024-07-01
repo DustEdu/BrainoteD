@@ -1,7 +1,7 @@
 import flask
 
 from objects_functions import note_functions, noteitem_functions, user_functions
-import auth_functions
+from routes_module import auth_functions
 
 from main import app
 from utility import isNoteOfUser, isNitemOfUser, getSessionUser, isAdmin, respond
@@ -13,7 +13,7 @@ def index():
 
 
 """
-===============USER routes===============
+===============USER routes_module===============
 """
 
 
@@ -54,7 +54,7 @@ def user_notes():
 
 
 """
-===============NOTE routes===============
+===============NOTE routes_module===============
 """
 
 
@@ -103,7 +103,7 @@ def note_items(noteid: int):
 
 
 """
-===============NOTEITEM routes===============
+===============NOTEITEM routes_module===============
 """
 
 

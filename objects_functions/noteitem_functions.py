@@ -1,6 +1,6 @@
 import sqlalchemy as db
 
-import routes.routes
+import routes_module.routes
 from main import dbs
 from ormmodels import NoteItem
 

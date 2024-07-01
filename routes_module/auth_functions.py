@@ -1,4 +1,4 @@
-import sqlalchemy
+import sqlalchemy as db
 
 from main import dbs
 from ormmodels import User, Session

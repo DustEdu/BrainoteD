@@ -17,6 +17,6 @@ if __name__ == "__main__":
     dbs.execute(sqlalchemy.text('PRAGMA foreign_keys=ON'))
     DeclarativeBase.metadata.create_all(bind=engine)
 
-    from routes.routes_admin import *
-    from routes.routes import *
+    from routes_module.routes_admin import *
+    from routes_module.routes import *
     app.run(debug=True)

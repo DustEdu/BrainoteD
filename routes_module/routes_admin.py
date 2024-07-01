@@ -1,9 +1,8 @@
 import flask
 
 from objects_functions import noteitem_functions, user_functions
-import flask_login
 
-import rfunctions
+from routes_module import rfunctions
 from main import app
 from utility import get_provided_user, isNoteOfUser, isNitemOfUser, getSessionUser, isAdmin, respond
 
@@ -146,7 +145,7 @@ def noteitem_route(nitem_id: int = None) -> flask.Response:
 
 
 @app.route("/admin/noteitem/", methods=["post"])
-def noteitem_route() -> flask.Response:
+def post_noteitem_route() -> flask.Response:
     sessionkey = flask.session.get("sessionkey")
     if not sessionkey:
         return respond("No sessionkey was found.")
