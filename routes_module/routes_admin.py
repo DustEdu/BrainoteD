@@ -71,11 +71,11 @@ def post_note_route() -> flask.Response:
     user, status = get_provided_user(sessionuser)
     if status:  return respond(status)
 
-    return user_functions.create_note(
+    return respond(response=user_functions.create_note(
         userid=user.ID,
         name=flask.request.args.get("name"),
         content=flask.request.args.get("content"),
-    )
+    ))
 
 
 @app.route("/admin/note/<note_id>", methods=["get", "delete"])
@@ -93,19 +93,19 @@ def note_route(note_id: int = None) -> flask.Response:
 
     # Checks and validations
     if errmsg := isIdInvalid(note_id, param_name="note_id"):
-        return errmsg
+        return respond(errmsg)
 
     # Check for note belonging if sessionuser is not admin
     if not (isNoteOfUser(note_id, user) or isAdmin(user)):
-        return f"No note with id#{note_id} was found for this specific user."
+        return respond(f"No note with id#{note_id} was found for this specific user.")
 
     #  ===== Executing corresponding HTTP-method =====
 
     match flask.request.method:
         case "GET":
-            return rfunctions.get_note(int(note_id))
+            return respond(response=rfunctions.get_note(int(note_id)))
         case "DELETE":
-            return rfunctions.delete_note(int(note_id))
+            return respond(rfunctions.delete_note(int(note_id)))
 
 
 @app.route("/admin/noteitem/<noteitem_id>", methods=["get", "delete", "put"])
@@ -131,8 +131,9 @@ def noteitem_route(nitem_id: int = None) -> flask.Response:
     #  ===== Executing corresponding HTTP-method =====
 
     match flask.request.method:
-        case "POST":   return rfunctions.post_noteitem(nitem_id)
-        case "GET":    return rfunctions.get_noteitem(nitem_id)
+        case "GET":
+            return respond(response=dict(
+                content=rfunctions.get_noteitem(nitem_id)))
         case "DELETE":
             if noteitem_functions.delete(nitem_id):
                 return respond(f"Item #{nitem_id} was successfully deleted!")
@@ -140,7 +141,8 @@ def noteitem_route(nitem_id: int = None) -> flask.Response:
                 return respond(f"ERROR: Could not find item by id #{nitem_id}.")
         case "PUT":
             content = str(flask.request.args.get("content"))
-            if not content: return respond("Error: No content parameter given.")
+            if not content:
+                return respond("Error: No content parameter given.")
             return respond(rfunctions.put_noteitem(nitem_id, content))
 
 
@@ -165,7 +167,10 @@ def post_noteitem_route() -> flask.Response:
     if not isNoteOfUser(note_id, user):
         return respond(f"No note with id#{note_id} was found for this specific user.")
 
-    return respond(response=rfunctions.post_noteitem(note_id))
+    status, nitem = rfunctions.post_noteitem(note_id)
+    return respond(status, dict(
+        nitem_id=nitem.ID
+    ))
 
 
 #  ===== TESTS (not included to the actual project) =====

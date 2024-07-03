@@ -91,7 +91,7 @@ def delete_note(note_id: int) -> str:
 """
 
 
-def get_noteitem(item_id: int) -> str:
+def get_noteitem(item_id: int) -> (str, list[NoteItem]):
     if not dbs.execute(db.select(Note).where(Note.ID == item_id)).one_or_none():
         return f"ERROR: Could not find note by id #{item_id}."
 
@@ -103,10 +103,10 @@ def get_noteitem(item_id: int) -> str:
 
     content.sort(key=lambda nitem: nitem.index)
 
-    return f"Note #{item_id} contents: {flask.jsonify(content)}"
+    return f"Note #{item_id} contents found.", content
 
 
-def post_noteitem(note_id: int) -> (str, str):
+def post_noteitem(note_id: int) -> (str, NoteItem):
     note = dbs.execute(
         db.select(Note)
         .where(Note.ID == note_id)
@@ -118,7 +118,7 @@ def post_noteitem(note_id: int) -> (str, str):
                                           itemtype="Text",
                                           content=flask.request.args.get("content"))
 
-    if new_item:    return f"Nitem posted under the ID #{new_item.ID}", new_item.ID
+    if new_item:    return f"Nitem posted under the ID #{new_item.ID}", new_item
     else:           return "ERROR: Could not post nitem."
 
 

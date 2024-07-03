@@ -90,7 +90,16 @@ def note_items(noteid: int):
 
     match flask.request.method:
         case "POST":
-            return respond(response=note_functions.create_item(noteid))
+            content = flask.request.args.get("content")
+            itemtype = flask.request.args.get("itemtype")
+            nitem = note_functions.create_item(noteid, content, itemtype)
+            return respond(response=dict(
+                noteitem_id=nitem.ID,
+                noteitem_content=nitem.content,
+                noteitem_type=nitem.itemtype,
+                noteitem_note=nitem.noteID,
+                noteitem_index=nitem.index
+            ))
         case "GET":
             return respond(response=dict(
                 notes=[dict(
@@ -115,7 +124,7 @@ def noteitem(noteitem_id: int):
 
     sessionuser = getSessionUser(sessionkey)
 
-    if not isNitemOfUser(noteitem_id, sessionuser) or not isAdmin(sessionuser):
+    if not isNitemOfUser(noteitem_id, sessionuser):
         return respond(f"No noteitem with id#{noteitem_id} was found for this specific user.")
 
     # ===== Executing corresponding HTTP-method backend =====

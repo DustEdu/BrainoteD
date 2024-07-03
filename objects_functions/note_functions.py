@@ -11,7 +11,7 @@ def delete(noteid: int) -> bool:
     ).one_or_none()
     if not note: return False
 
-    dbs.delete(note)
+    dbs.delete(note[0])
     dbs.commit()
     return True
 
@@ -26,7 +26,7 @@ def get_items(noteid: int) -> list[NoteItem] | None:
 
 
 def create_item(noteid: int,
-                content: str = "",
+                content: str = " ",
                 itemtype: str = "Text") -> NoteItem | None:
     nitem = NoteItem(noteid, content, itemtype)
     if not nitem: return
